@@ -1,31 +1,10 @@
 'use strict';
 
+var urlLib = require('./url-library.js')
 var fs = require('fs');
 var express = require('express');
 var app = express();
 
-
-function validateUrl(url) {
-  if (req.url && req.url.length > 17) {
-    
-    var newUrl = req.url.substr(5);
-    var protocol = newUrl.substr(0, newUrl.indexOf("://"));
-    if (!protocol) {
-      return false;
-    }
-    if (protocol !== 'http' || protocol !== 'https') {
-      return false;
-    }
-    
-    var hostname = newUrl.substr(protocol.length+3);
-    var parts = hostname.split(".");
-    if (parts.length < 3) {
-      return false;
-    }
-    return true;
-  }
-  return false;
-}
 
 if (!process.env.DISABLE_XORIGIN) {
   app.use(function(req, res, next) {
@@ -58,23 +37,31 @@ app.route('/')
 
 app.route('/new/:longurl').get(function(req, res, next) {
   var url = req.url.substr(5);
-  if (!validateUrl(url)) {
+  if (!urlLib.validateUrl(url)) {
     return res.send("Invalid URL");
   }
-    
-    
-    var urlId = '';
-    var result = {
+    urlLib.storeUrl(url, function(err, id) {
+      if (err) return res.send(err);
+      var result = {
       'original_url': url,
-      'short_url': 'https://fanatical-earth.glitch.me/'+urlId
+      'short_url': 'https://fanatical-earth.glitch.me/'+id
     };
     res.send(JSON.stringify(result));
+    });
+    
 });
 
 app.route('/:id').get(function(req, res, next){
-  res.send("Short URL not found");
-  var newUrl = '';
-  res.redirect(newUrl);
+  var id = req.params.id;
+  if (!id || isNaN(id)) {
+    return res.send('Invalid short URL');
+  }
+  urlLib.fetchUrl(id, function(err, url) {
+    if (err) return res.send(err);
+    if (url === false) return res.send("Short URL not found");
+    else res.redirect(url);
+  });
+  
 });
 
 
