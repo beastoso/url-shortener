@@ -2,40 +2,40 @@ var mongo = require("mongodb");
 
 var connectionStr = "mongodb://beastoso:hard24get@ds129013.mlab.com:29013/fcc-beastoso";
 
-module.exports = {
+var library = {
   validateUrl: function(url) {
-    if (url && url.length > 17) {
-
-      var newUrl = url.substr(5);
-      var protocol = newUrl.substr(0, newUrl.indexOf("://"));
-      if (!protocol) {
-        return false;
-      }
-      if (protocol !== 'http' || protocol !== 'https') {
-        return false;
-      }
-
-      var hostname = newUrl.substr(protocol.length+3);
-      var parts = hostname.split(".");
-      if (parts.length < 3) {
-        return false;
-      }
-      return true;
+    if (!url || url.length < 12) {
+      return false;
     }
-    return false;
+
+    var index = url.indexOf("://");
+    if (index < 4) {
+      return false;
+    }
+    var protocol = url.substr(0, index);
+    if (!protocol || (protocol !== 'http' && protocol !== 'https')) {
+      return false;
+    }
+    var hostname = url.substr(protocol.length+3);
+    
+    var parts = hostname.split(".");
+    if (parts.length < 2) {
+      return false;
+    }
+    return true;
   },
    checkUrl: function(url, callback) {
      mongo.connect(connectionStr, function(err, db) {
       if (err) return callback(err, null);
       var collection = db.collection('urls');
-      collection.find(
+      collection.findOne(
         {'url': url},
-        {'id':1,'url':0}
-      ).toArray(function(error, urls) {
-        if (error) return callback(error, null);
-        db.close();
-        if (urls.length === 0) return callback(null, false);
-        callback(null, urls[0].id);
+        {'shorturl':1},
+        function(error, url) {
+          if (error) return callback(error, null);
+          db.close();
+          if (!url) return callback(null, false);
+          callback(null, url.shorturl);
       });
     });
    },
@@ -43,19 +43,18 @@ module.exports = {
     mongo.connect(connectionStr, function(err, db) {
       if (err) return callback(err, null);
       
-      this.checkUrl(url, function(findErr, id) {
+      library.checkUrl(url, function(findErr, id) {
         if (findErr) return callback(findErr, null);
-        if (!id) {
-          var collection = db.collection('urls');
-          var obj = { 'url' : url };
-          console.log(JSON.stringify(obj));
-          collection.insert(url,function(error, urls) {
-            if (error) return callback(error, null);
-            db.close();
-            return callback(null, urls[0].id);
-          });
-        }
-        return callback(null, id);
+        if (id) return callback(null, id);
+        
+        var collection = db.collection('urls');
+        var urlId = (Math.random()*10000).toFixed(0);
+        var obj = { 'url' : url, 'shorturl': urlId };
+        collection.insert(obj,function(error, urls) {
+          if (error) return callback(error, null);
+          db.close();
+          return urlId;
+        });
       });
       
     });
@@ -64,15 +63,18 @@ module.exports = {
     mongo.connect(connectionStr, function(err, db) {
       if (err) return callback(err, null);
       var collection = db.collection('urls');
-      collection.find(
-        {'id': parseInt(id)},
-        {'url':1,'id':0}
-      ).toArray(function(error, urls) {
-        if (error) return callback(error, null);
-        db.close();
-        if (urls.length == 0) return callback(null, false);
-        else return callback(null, urls[0].url);
-      });
+      collection.findOne(
+        {'shorturl': id},
+        {'url':1},
+        function(error, url) {
+          if (error) return callback(error, null);
+          db.close();
+          if (!url) return callback(null, false);
+          return callback(null, url.url);
+        }
+      );
     });
   }
 }
+
+module.exports = library;

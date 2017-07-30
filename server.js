@@ -35,20 +35,19 @@ app.route('/')
 		  res.sendFile(process.cwd() + '/views/index.html');
     });
 
-app.route('/new/:longurl').get(function(req, res, next) {
+app.route('/new/*').get(function(req, res, next) {
   var url = req.url.substr(5);
   if (!urlLib.validateUrl(url)) {
     return res.send("Invalid URL");
   }
-    urlLib.storeUrl(url, function(err, id) {
-      if (err) return res.send(err);
-      var result = {
+  urlLib.storeUrl(url, function(err, id) {
+    if (err) return res.send(err);
+    var result = {
       'original_url': url,
       'short_url': 'https://fanatical-earth.glitch.me/'+id
     };
     res.send(JSON.stringify(result));
-    });
-    
+  });    
 });
 
 app.route('/:id').get(function(req, res, next){
